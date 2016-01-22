@@ -27,6 +27,10 @@ class Router(object):
                            controller=controller, action="changeUtilPeriod",
                            conditions=dict(method=["POST"]))
 
+        self.mapper.connect("/clearUtilsData",
+                           controller=controller, action="clearSamples",
+                           conditions=dict(method=["GET"]))
+
 
     @wsgify(RequestClass=webob.Request)
     def __call__(self, request):

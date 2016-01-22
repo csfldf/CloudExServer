@@ -11,10 +11,28 @@ from NovaUtil.TomcatInstanceUtil import TomcatInstanceUtil
 from CeilometerUtil.SampleUtil import SampleUtil
 
 
-ipEndOfComputes = [50, 60, 70, 80]
+ipEndOfComputes = [50, 60, 70, 80, 210, 220, 230, 240]
 ipEndOfController = 40
 
 class Controller(object):
+
+    def clearSamples(self, req):
+        check = 1
+
+        try:
+            token = req.headers['X-Auth-Token']
+            if token != 'sk':
+                check = 0
+
+        except KeyError:
+            check = 0
+
+        if check:
+            os.system('/home/sk/cloudEx/shellScript/clearSamples.sh > /dev/null')
+            return successResultJson('clear meter data successfully!')
+        else:
+            return errorResultJson('you are not allowed to do this!')
+
 
     def changeUtilPeriod(self, req):
         period = req.params.get('period')
@@ -31,7 +49,7 @@ class Controller(object):
                 interval = period / windowSize
                 for ipEnd in ipEndOfComputes:
                     os.system('/home/sk/cloudEx/shellScript/changeCeilometerInterval.sh ' + str(ipEnd) + ' ' + str(period) + ' ' + str(windowSize) + ' > /dev/null')
-                os.system('/home/sk/cloudEx/shellScript/clearMeter.sh ' + str(period))
+                #os.system('/home/sk/cloudEx/shellScript/setTTL.sh ' + str(period))
                 result = successResultJson('Change Util poll period and windowSize successfully')
         return result
 
