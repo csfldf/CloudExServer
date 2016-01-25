@@ -16,6 +16,37 @@ ipEndOfController = 40
 
 class Controller(object):
 
+
+    def testAction(self, req):
+        check = 1
+
+        try:
+            token = req.headers['X-Auth-Token']
+            if token != 'sk':
+                check = 0
+
+        except KeyError:
+            check = 0
+
+        if check:
+            print '''
+                aaaaaaaaaa
+                aaaaaaaaaa
+                aaaaaaaaaa
+                aaaaaaaaaa
+                aaaaaaaaaa
+                aaaaaaaaaa
+                aaaaaaaaaa
+                aaaaaaaaaa
+                aaaaaaaaaa
+                aaaaaaaaaa
+                aaaaaaaaaa
+                aaaaaaaaaa
+            '''
+            return successResultJson('test data successfully!')
+        else:
+            return errorResultJson('you are not allowed to do this!')
+
     def clearSamples(self, req):
         check = 1
 
