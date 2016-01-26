@@ -4,12 +4,13 @@ import webob
 import simplejson
 import types
 import os
+import shelve
 from webob.dec import wsgify
 from NormalUtil import *
 from DBUtil.UsingInstancesDBUtil import UsingInstancesDBUtil
 from NovaUtil.TomcatInstanceUtil import TomcatInstanceUtil
 from CeilometerUtil.SampleUtil import SampleUtil
-
+from DBUtil.PerformanceDBUtil import PerformanceDBUtil
 
 ipEndOfComputes = [50, 60, 70, 80, 210, 220, 230, 240]
 ipEndOfController = 40
@@ -29,20 +30,6 @@ class Controller(object):
             check = 0
 
         if check:
-            print '''
-                aaaaaaaaaa
-                aaaaaaaaaa
-                aaaaaaaaaa
-                aaaaaaaaaa
-                aaaaaaaaaa
-                aaaaaaaaaa
-                aaaaaaaaaa
-                aaaaaaaaaa
-                aaaaaaaaaa
-                aaaaaaaaaa
-                aaaaaaaaaa
-                aaaaaaaaaa
-            '''
             return successResultJson('test data successfully!')
         else:
             return errorResultJson('you are not allowed to do this!')
@@ -151,3 +138,29 @@ class Controller(object):
             #print >> f, type(result), '\n', result
             return result
 
+    def periodPerformanceDataHandler(self, req):
+        minResponseTime = req.params.get('minResponseTime')
+        avgResponseTime = req.params.get('avgResponseTime')
+        maxResponseTime = req.params.get('maxResponseTime')
+        totalRequestCount = req.params.get('totalRequestCount')
+        breakSLACount = req.params.get('breakSLACount')
+
+        if  not isDecimal(minResponseTime) or not isDecimal(maxResponseTime) or not isDecimal(avgResponseTime) or not isNumber(totalRequestCount) or not isNumber(breakSLACount):
+            result = errorResultJson('Please pass the params correctly')
+        else:
+            periodNoDB = shelve.open(periodRecoderFile)
+            periodNo = periodNoDB.get(periodRecoder, None)
+
+            if not periodNo:
+                periodNo = 1
+
+            periodNoDB[periodRecoder] = periodNo + 1
+            periodNoDB.close()
+
+            breakSLAPercent = float(breakSLACount) / totalRequestCount
+            breakSLAPercent = round(breakSLAPercent, 4)
+
+            performanceData = {'minResponseTime':minResponseTime, 'maxResponseTime':maxResponseTime, 'avgResponseTime':avgResponseTime, 'breakSLAPercent':breakSLAPercent, 'avgCpuUtil':avgCpuUtil, 'avgMemoryUtil':avgMemoryUtil}
+            PerformanceDBUtil.addPerformanceDataToSpecificPeriod(periodNo, performanceData)
+
+        return result
