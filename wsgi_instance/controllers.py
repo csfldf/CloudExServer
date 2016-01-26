@@ -11,6 +11,7 @@ from DBUtil.UsingInstancesDBUtil import UsingInstancesDBUtil
 from NovaUtil.TomcatInstanceUtil import TomcatInstanceUtil
 from CeilometerUtil.SampleUtil import SampleUtil
 from DBUtil.PerformanceDBUtil import PerformanceDBUtil
+from DBUtil.WorkloadDBUtil import WorkloadDBUtil
 
 ipEndOfComputes = [50, 60, 70, 80, 210, 220, 230, 240]
 ipEndOfController = 40
@@ -144,10 +145,15 @@ class Controller(object):
         maxResponseTime = req.params.get('maxResponseTime')
         totalRequestCount = req.params.get('totalRequestCount')
         breakSLACount = req.params.get('breakSLACount')
+        avgCpuUtil = SampleUtil.getAllUsingInstancesPeriodAVGCpuUtil()
+        avgMemoryUtil = SampleUtil.getAllUsingInstancesPeriodAVGMemoryUtil()
 
         if  not isDecimal(minResponseTime) or not isDecimal(maxResponseTime) or not isDecimal(avgResponseTime) or not isNumber(totalRequestCount) or not isNumber(breakSLACount):
             result = errorResultJson('Please pass the params correctly')
+        elif not avgCpuUtil or not avgMemoryUtil:
+            raise Exception("can not get avgCpuUtil or avgMemoryUtil data")
         else:
+            #确认periodNo
             periodNoDB = shelve.open(periodRecoderFile)
             periodNo = periodNoDB.get(periodRecoder, None)
 
@@ -157,10 +163,23 @@ class Controller(object):
             periodNoDB[periodRecoder] = periodNo + 1
             periodNoDB.close()
 
+            #计算breakSLAPercent
             breakSLAPercent = float(breakSLACount) / totalRequestCount
             breakSLAPercent = round(breakSLAPercent, 4)
 
+            #添加performanceData
+
+            avgCpuUtil = SampleUtil.getAllUsingInstancesPeriodAVGCpuUtil()
+            avgMemoryUtil = SampleUtil.getAllUsingInstancesPeriodAVGMemoryUtil()
+
             performanceData = {'minResponseTime':minResponseTime, 'maxResponseTime':maxResponseTime, 'avgResponseTime':avgResponseTime, 'breakSLAPercent':breakSLAPercent, 'avgCpuUtil':avgCpuUtil, 'avgMemoryUtil':avgMemoryUtil}
             PerformanceDBUtil.addPerformanceDataToSpecificPeriod(periodNo, performanceData)
+
+
+            #向数据库中添加workload信息
+            if periodNo == 1:
+                WorkloadDBUtil.addFirstPeriodRealWorkload(totalRequestCount)
+            else:
+                WorkloadDBUtil.addRealWorkloadToSpecificPeriod(periodNo, totalRequestCount)
 
         return result
