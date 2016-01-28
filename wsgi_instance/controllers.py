@@ -11,7 +11,8 @@ from CeilometerUtil.SampleUtil import SampleUtil
 from DBUtil.PerformanceDBUtil import PerformanceDBUtil
 from DBUtil.WorkloadDBUtil import WorkloadDBUtil
 from ACRCUtil.ACRController import ACRController
-from ACRCUtil.SLAHandler import SLAHandler
+from ACRCUtil.ExperimentInit import ExperimentInit
+
 
 ipEndOfComputes = [50, 60, 70, 80, 210, 220, 230, 240]
 ipEndOfController = 40
@@ -200,7 +201,7 @@ class Controller(object):
             check = 0
 
         if check:
-            SLAHandler.getInitialScheme()
+            ExperimentInit.getInitialScheme()
             return successResultJson('initialize experiment successfully, you can launch experiment now!')
         else:
             return errorResultJson('You are not allowed to do this!')
