@@ -1,8 +1,6 @@
 #coding: utf-8
-import uuid
 import webob
 import simplejson
-import types
 import os
 import shelve
 from webob.dec import wsgify
@@ -12,6 +10,8 @@ from NovaUtil.TomcatInstanceUtil import TomcatInstanceUtil
 from CeilometerUtil.SampleUtil import SampleUtil
 from DBUtil.PerformanceDBUtil import PerformanceDBUtil
 from DBUtil.WorkloadDBUtil import WorkloadDBUtil
+from ACRCUtil.ACRController import ACRController
+from ACRCUtil.SLAHandler import SLAHandler
 
 ipEndOfComputes = [50, 60, 70, 80, 210, 220, 230, 240]
 ipEndOfController = 40
@@ -65,7 +65,6 @@ class Controller(object):
             if period % windowSize != 0:
                 result = errorResultJson('The period must be exact divided by windowSize')
             else:
-                interval = period / windowSize
                 for ipEnd in ipEndOfComputes:
                     os.system('/home/sk/cloudEx/shellScript/changeCeilometerInterval.sh ' + str(ipEnd) + ' ' + str(period) + ' ' + str(windowSize) + ' > /dev/null')
                 #os.system('/home/sk/cloudEx/shellScript/setTTL.sh ' + str(period))
@@ -112,6 +111,7 @@ class Controller(object):
         else:
             result = errorResultJson('The Post Body Must be {requireCount:x, reset:y} (ps:x must be number, reset must be 0 or 1)')
         return result
+
     @wsgify(RequestClass=webob.Request)
     def __call__(self, req):
         arg_dict = req.environ['wsgiorg.routing_args'][1]
@@ -145,11 +145,11 @@ class Controller(object):
         maxResponseTime = req.params.get('maxResponseTime')
         totalRequestCount = req.params.get('totalRequestCount')
         breakSLACount = req.params.get('breakSLACount')
-        avgCpuUtil = SampleUtil.getAllUsingInstancesPeriodAVGCpuUtil()
-        avgMemoryUtil = SampleUtil.getAllUsingInstancesPeriodAVGMemoryUtil()
+        avgCpuUtil = round(SampleUtil.getAllUsingInstancesPeriodAVGCpuUtil() / 100.0, 2)
+        avgMemoryUtil = round(SampleUtil.getAllUsingInstancesPeriodAVGMemoryUtil() / 100.0, 2)
 
         if  not isDecimal(minResponseTime) or not isDecimal(maxResponseTime) or not isDecimal(avgResponseTime) or not isNumber(totalRequestCount) or not isNumber(breakSLACount):
-            result = errorResultJson('Please pass the params correctly')
+            return errorResultJson('Please pass the params correctly')
         elif not avgCpuUtil or not avgMemoryUtil:
             raise Exception("can not get avgCpuUtil or avgMemoryUtil data")
         else:
@@ -182,4 +182,25 @@ class Controller(object):
             else:
                 WorkloadDBUtil.addRealWorkloadToSpecificPeriod(periodNo, totalRequestCount)
 
-        return result
+            acrCtl = ACRController()
+            acrCtl.autonomicPeriodHandler()
+
+            TomcatInstanceUtil.ensureAllUsingInstancesActive()
+            return UsingInstancesDBUtil.getAllUsingInstancesInfo()
+
+    def initExperiment(self, req):
+        check = 1
+
+        try:
+            token = req.headers['X-Auth-Token']
+            if token != 'sk':
+                check = 0
+
+        except KeyError:
+            check = 0
+
+        if check:
+            SLAHandler.getInitialScheme()
+            return successResultJson('initialize experiment successfully, you can launch experiment now!')
+        else:
+            return errorResultJson('You are not allowed to do this!')

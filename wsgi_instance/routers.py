@@ -37,6 +37,10 @@ class Router(object):
 
         self.mapper.connect("/pushPeriodPerformanceData",
                            controller=controller, action="periodPerformanceDataHandler",
+                           conditions=dict(method=["POST"]))
+
+        self.mapper.connect("/initExperiment",
+                           controller=controller, action="initExperiment",
                            conditions=dict(method=["GET"]))
 
     @wsgify(RequestClass=webob.Request)
