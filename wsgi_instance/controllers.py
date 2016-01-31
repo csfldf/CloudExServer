@@ -12,7 +12,7 @@ from DBUtil.PerformanceDBUtil import PerformanceDBUtil
 from DBUtil.WorkloadDBUtil import WorkloadDBUtil
 from ACRCUtil.ACRController import ACRController
 from ACRCUtil.ExperimentInit import ExperimentInit
-
+from ACRCUtil.ACRCPlacementComponent import ACRCPlacementComponent
 
 ipEndOfComputes = [50, 60, 70, 80, 210, 220, 230, 240]
 ipEndOfController = 40
@@ -133,14 +133,22 @@ class Controller(object):
         maxResponseTime = req.params.get('maxResponseTime')
         totalRequestCount = req.params.get('totalRequestCount')
         breakSLACount = req.params.get('breakSLACount')
-        avgCpuUtil = round(SampleUtil.getAllUsingInstancesPeriodAVGCpuUtil() / 100.0, 2)
-        avgMemoryUtil = round(SampleUtil.getAllUsingInstancesPeriodAVGMemoryUtil() / 100.0, 2)
+        avgCpuUtil = round(SampleUtil.getAllUsingInstancesPeriodAVGCpuUtil() / 100.0, 4)
+        avgMemoryUtil = round(SampleUtil.getAllUsingInstancesPeriodAVGMemoryUtil() / 100.0, 4)
+
 
         if  not isDecimal(minResponseTime) or not isDecimal(maxResponseTime) or not isDecimal(avgResponseTime) or not isNumber(totalRequestCount) or not isNumber(breakSLACount):
             return errorResultJson('Please pass the params correctly')
-        elif not avgCpuUtil or not avgMemoryUtil:
+        elif avgCpuUtil == None or avgMemoryUtil == None:
             raise Exception("can not get avgCpuUtil or avgMemoryUtil data")
         else:
+            minResponseTime = float(minResponseTime)
+            avgResponseTime = float(avgResponseTime)
+            maxResponseTime = float(maxResponseTime)
+            totalRequestCount = int(totalRequestCount)
+            breakSLACount = int(breakSLACount)
+
+
             #确认periodNo
             periodNoDB = shelve.open(periodRecoderFile)
             periodNo = periodNoDB.get(periodRecoder, None)
@@ -155,12 +163,14 @@ class Controller(object):
             breakSLAPercent = float(breakSLACount) / totalRequestCount
             breakSLAPercent = round(breakSLAPercent, 4)
 
+
+            #计算刚刚过去的这个周期的可用性
+            placementTool = ACRCPlacementComponent()
+            availabilityData = placementTool.calculateAvailability()
+
             #添加performanceData
 
-            avgCpuUtil = SampleUtil.getAllUsingInstancesPeriodAVGCpuUtil()
-            avgMemoryUtil = SampleUtil.getAllUsingInstancesPeriodAVGMemoryUtil()
-
-            performanceData = {'minResponseTime':minResponseTime, 'maxResponseTime':maxResponseTime, 'avgResponseTime':avgResponseTime, 'breakSLAPercent':breakSLAPercent, 'avgCpuUtil':avgCpuUtil, 'avgMemoryUtil':avgMemoryUtil}
+            performanceData = {'minResponseTime':minResponseTime, 'maxResponseTime':maxResponseTime, 'avgResponseTime':avgResponseTime, 'breakSLAPercent':breakSLAPercent, 'avgCpuUtil':avgCpuUtil, 'avgMemoryUtil':avgMemoryUtil, 'availability':availabilityData}
             PerformanceDBUtil.addPerformanceDataToSpecificPeriod(periodNo, performanceData)
 
 
