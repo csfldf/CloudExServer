@@ -168,9 +168,11 @@ class Controller(object):
             placementTool = ACRCPlacementComponent()
             availabilityData = placementTool.calculateAvailability()
 
+            #得到刚刚过去这个周期的虚拟机数目
+            vmNumbers = UsingInstancesDBUtil.getUsingInstancesCount()
             #添加performanceData
 
-            performanceData = {'minResponseTime':minResponseTime, 'maxResponseTime':maxResponseTime, 'avgResponseTime':avgResponseTime, 'breakSLAPercent':breakSLAPercent, 'avgCpuUtil':avgCpuUtil, 'avgMemoryUtil':avgMemoryUtil, 'availability':availabilityData}
+            performanceData = {'minResponseTime':minResponseTime, 'maxResponseTime':maxResponseTime, 'avgResponseTime':avgResponseTime, 'breakSLAPercent':breakSLAPercent, 'avgCpuUtil':avgCpuUtil, 'avgMemoryUtil':avgMemoryUtil, 'availability':availabilityData, 'vmNumbers':vmNumbers}
             PerformanceDBUtil.addPerformanceDataToSpecificPeriod(periodNo, performanceData)
 
 
@@ -199,6 +201,6 @@ class Controller(object):
 
         if check:
             ExperimentInit().getInitialScheme()
-            return successResultJson('initialize experiment successfully, you can launch experiment now!')
+            return UsingInstancesDBUtil.getAllUsingInstancesInfo()
         else:
             return errorResultJson('You are not allowed to do this!')
