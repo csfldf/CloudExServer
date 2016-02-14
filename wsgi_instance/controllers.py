@@ -10,6 +10,7 @@ from NovaUtil.TomcatInstanceUtil import TomcatInstanceUtil
 from CeilometerUtil.SampleUtil import SampleUtil
 from DBUtil.PerformanceDBUtil import PerformanceDBUtil
 from DBUtil.WorkloadDBUtil import WorkloadDBUtil
+from DBUtil.WorkloadVMMapDBUtil import WorkloadVMMapDBUtil
 from ACRCUtil.ACRController import ACRController
 from ACRCUtil.ExperimentInit import ExperimentInit
 from ACRCUtil.ACRCPlacementComponent import ACRCPlacementComponent
@@ -137,7 +138,7 @@ class Controller(object):
         avgMemoryUtil = round(SampleUtil.getAllUsingInstancesPeriodAVGMemoryUtil() / 100.0, 4)
 
 
-        if  not isDecimal(minResponseTime) or not isDecimal(maxResponseTime) or not isDecimal(avgResponseTime) or not isNumber(totalRequestCount) or not isNumber(breakSLACount):
+        if  not (isDecimal(minResponseTime) or isNumber(minResponseTime)) or not (isDecimal(maxResponseTime) or isNumber(maxResponseTime)) or not (isDecimal(avgResponseTime) or isNumber(avgResponseTime)) or not isNumber(totalRequestCount) or not isNumber(breakSLACount):
             return errorResultJson('Please pass the params correctly')
         elif avgCpuUtil == None or avgMemoryUtil == None:
             raise Exception("can not get avgCpuUtil or avgMemoryUtil data")
@@ -170,9 +171,12 @@ class Controller(object):
 
             #得到刚刚过去这个周期的虚拟机数目
             vmNumbers = UsingInstancesDBUtil.getUsingInstancesCount()
-            #添加performanceData
 
-            performanceData = {'minResponseTime':minResponseTime, 'maxResponseTime':maxResponseTime, 'avgResponseTime':avgResponseTime, 'breakSLAPercent':breakSLAPercent, 'avgCpuUtil':avgCpuUtil, 'avgMemoryUtil':avgMemoryUtil, 'availability':availabilityData, 'vmNumbers':vmNumbers}
+            #添加上个周期应该提供的虚拟机数目
+            shouldVMNumbers = WorkloadVMMapDBUtil.getTargetVMsToSpecificWorkload(totalRequestCount)
+
+            #添加performanceData
+            performanceData = {'minResponseTime':minResponseTime, 'maxResponseTime':maxResponseTime, 'avgResponseTime':avgResponseTime, 'breakSLAPercent':breakSLAPercent, 'avgCpuUtil':avgCpuUtil, 'avgMemoryUtil':avgMemoryUtil, 'availability':availabilityData, 'vmNumbers':vmNumbers, 'shouldVMNumbers':shouldVMNumbers}
             PerformanceDBUtil.addPerformanceDataToSpecificPeriod(periodNo, performanceData)
 
 
