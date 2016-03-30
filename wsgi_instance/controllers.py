@@ -175,8 +175,19 @@ class Controller(object):
             #添加上个周期应该提供的虚拟机数目
             shouldVMNumbers = WorkloadVMMapDBUtil.getTargetVMsToSpecificWorkload(totalRequestCount)
 
+
+            if periodNo == 1:
+                ppVMNumbers = vmNumbers
+                rpVMNumbers = 0
+            else:
+                provisionInfoDB = shelve.open(provisionInfoFile)
+                ppVMNumbers = provisionInfoDB.get(predictProvisionVMNumbers, None)
+                rpVMNumbers = provisionInfoDB.get(reactiveProvisionVMNumbers, None)
+
+
+
             #添加performanceData
-            performanceData = {'minResponseTime':minResponseTime, 'maxResponseTime':maxResponseTime, 'avgResponseTime':avgResponseTime, 'breakSLAPercent':breakSLAPercent, 'avgCpuUtil':avgCpuUtil, 'avgMemoryUtil':avgMemoryUtil, 'availability':availabilityData, 'vmNumbers':vmNumbers, 'shouldVMNumbers':shouldVMNumbers}
+            performanceData = {'minResponseTime':minResponseTime, 'maxResponseTime':maxResponseTime, 'avgResponseTime':avgResponseTime, 'breakSLAPercent':breakSLAPercent, 'avgCpuUtil':avgCpuUtil, 'avgMemoryUtil':avgMemoryUtil, 'availability':availabilityData, 'vmNumbers':vmNumbers, 'shouldVMNumbers':shouldVMNumbers, 'predictProvisionVMNumbers':ppVMNumbers, 'reactiveProvisionVMNumbers':rpVMNumbers}
             PerformanceDBUtil.addPerformanceDataToSpecificPeriod(periodNo, performanceData)
 
 
