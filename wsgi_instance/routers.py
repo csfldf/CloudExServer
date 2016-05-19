@@ -15,8 +15,25 @@ class Router(object):
 
     def add_routes(self):
         controller = controllers.Controller()
+
+        self.mapper.connect("/modifyPMThreshold",
+                           controller=controller, action="modifyPMThreshold",
+                           conditions=dict(method=["POST"]))
+
+        self.mapper.connect("/doMigration",
+                           controller=controller, action="doMigration",
+                           conditions=dict(method=["POST"]))
+
         self.mapper.connect("/instances",
                            controller=controller, action="create",
+                           conditions=dict(method=["POST"]))
+
+        self.mapper.connect("/getPMList",
+                           controller=controller, action="getPMList",
+                           conditions=dict(method=["GET"]))
+
+        self.mapper.connect("/getVMList",
+                           controller=controller, action="getVMList",
                            conditions=dict(method=["POST"]))
 
         self.mapper.connect("/getUtils",
@@ -42,6 +59,10 @@ class Router(object):
         self.mapper.connect("/initExperiment",
                            controller=controller, action="initExperiment",
                            conditions=dict(method=["GET"]))
+
+        self.mapper.connect("/initExperimentThree",
+                           controller=controller, action="initExperimentThree",
+                           conditions=dict(method=["POST"]))
 
     @wsgify(RequestClass=webob.Request)
     def __call__(self, request):

@@ -14,11 +14,68 @@ from DBUtil.WorkloadVMMapDBUtil import WorkloadVMMapDBUtil
 from ACRCUtil.ACRController import ACRController
 from ACRCUtil.ExperimentInit import ExperimentInit
 from ACRCUtil.ACRCPlacementComponent import ACRCPlacementComponent
+from DBUtil.PMAndAZDBUtil import PMAndAZDBUtil
 
 ipEndOfComputes = [50, 60, 70, 80, 210, 220, 230, 240]
 ipEndOfController = 40
 
 class Controller(object):
+    def modifyPMThreshold(self, req):
+        pmId = req.params.get('id')
+        ut = float(req.params.get('upper_threshold'))
+        lt = float(req.params.get('lower_threshold'))
+
+        if ut == None or lt == None or pmId == None:
+            return errorResultJson('Please pass upper_threshold, lower_threshold and pmId!')
+
+        if ut >= 0:
+            PMAndAZDBUtil.modifyUpperThreshold(pmId, ut)
+
+        if lt >= 0:
+            PMAndAZDBUtil.modifyLowerThreshold(pmId, lt)
+
+        return successResultJson(True)
+
+    def doMigration(self, req):
+        vmId = req.params.get('givenVM')
+        pmId = req.params.get('targetPM')
+
+        if not vmId or not pmId:
+            return errorResultJson('please pass the givenVM and the givenPM!')
+
+        azName = PMAndAZDBUtil.getAZNameByResourceId(pmId)
+        if TomcatInstanceUtil.migrate(vmId, azName):
+            return successResultJson(True)
+        else:
+            return errorResultJson(False)
+
+
+    def getVMList(self, req):
+        pmId = req.params.get('id')
+        azName = PMAndAZDBUtil.getAZNameByResourceId(pmId)
+        vmList = UsingInstancesDBUtil.getUsingInstancesByAZName(azName)
+
+        if not vmList:
+            return []
+        else:
+            return [vm['id'] for vm in vmList]
+
+
+
+    def getPMList(self, req):
+        check = 1
+
+        try:
+            token = req.headers['X-Auth-Token']
+            if token != 'sk':
+                check = 0
+        except KeyError:
+            check = 0
+
+        if check:
+            return PMAndAZDBUtil.getAllPMsInfo()
+        else:
+            return errorResultJson('you are not allowed to do this!')
 
 
     def testAction(self, req):
@@ -46,7 +103,7 @@ class Controller(object):
         period = req.params.get('period')
         windowSize = req.params.get('windowSize')
 
-        if  not period or not windowSize or not isNumber(period) or not isNumber(windowSize):
+        if not period or not windowSize or not isNumber(period) or not isNumber(windowSize):
             result = errorResultJson('The period and windowSize must be Int Number')
         else:
             period = int(period)
@@ -219,3 +276,32 @@ class Controller(object):
             return UsingInstancesDBUtil.getAllUsingInstancesInfo()
         else:
             return errorResultJson('You are not allowed to do this!')
+
+
+    def initExperimentThree(self, req):
+        vmNum = req.params.get('requireCount')
+
+        if vmNum and isNumber(vmNum):
+            rc = int(vmNum)
+
+            uic = UsingInstancesDBUtil.getUsingInstancesCount()
+            if rc > uic:
+                needC = rc - uic
+                while needC > 0:
+                    TomcatInstanceUtil.createTomcatInstance()
+                    needC -= 1
+            elif rc < uic:
+                deleteC = uic - rc
+                TomcatInstanceUtil.deleteSpecifyNumberInstances(deleteC)
+
+            TomcatInstanceUtil.ensureAllUsingInstancesActive()
+
+            for ipEnd in ipEndOfComputes:
+                os.system('/home/sk/cloudEx/shellScript/initAllPMUtil.sh ' + str(ipEnd) + ' > /dev/null')
+
+
+            return UsingInstancesDBUtil.getAllUsingInstancesInfo()
+        else:
+            result = errorResultJson('The Post Body Must be {requireCount:x} (ps:x must be number)')
+        return result
+
