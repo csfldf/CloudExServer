@@ -260,6 +260,86 @@ class Controller(object):
             TomcatInstanceUtil.ensureAllUsingInstancesActive()
             return UsingInstancesDBUtil.getAllUsingInstancesInfo()
 
+    # additionally check in threadInfo
+    def periodPerformanceDataHandler2(self, req):
+        minResponseTime = req.params.get('minResponseTime')
+        avgResponseTime = req.params.get('avgResponseTime')
+        maxResponseTime = req.params.get('maxResponseTime')
+        totalRequestCount = req.params.get('totalRequestCount')
+        breakSLACount = req.params.get('breakSLACount')
+        jumpServer = req.params.get('jumpServer')
+        infos = SampleUtil.getThreadInfosOverAllUsingInstances(jumpServer)
+        avgCpuUtil = round(infos[0] / 100.0, 4)
+        totalCalculation = infos[1]
+        avgMemoryUtil = round(SampleUtil.getAllUsingInstancesPeriodAVGMemoryUtil() / 100.0, 4)
+
+        if not (isDecimal(minResponseTime) or isNumber(minResponseTime)) or not (
+            isDecimal(maxResponseTime) or isNumber(maxResponseTime)) or not (
+            isDecimal(avgResponseTime) or isNumber(avgResponseTime)) or not isNumber(totalRequestCount) or not isNumber(
+                breakSLACount):
+            return errorResultJson('Please pass the params correctly')
+        elif avgCpuUtil == None or avgMemoryUtil == None or totalCalculation == None:
+            raise Exception("can not get avgCpuUtil or avgMemoryUtil or totalCalculation data")
+        else:
+            minResponseTime = float(minResponseTime)
+            avgResponseTime = float(avgResponseTime)
+            maxResponseTime = float(maxResponseTime)
+            totalRequestCount = int(totalRequestCount)
+            breakSLACount = int(breakSLACount)
+
+            # 确认periodNo
+            periodNoDB = shelve.open(periodRecoderFile)
+            periodNo = periodNoDB.get(periodRecoder, None)
+
+            if not periodNo:
+                periodNo = 1
+
+            periodNoDB[periodRecoder] = periodNo + 1
+            periodNoDB.close()
+
+            # 计算breakSLAPercent
+            breakSLAPercent = float(breakSLACount) / totalRequestCount
+            breakSLAPercent = round(breakSLAPercent, 4)
+
+            # 计算刚刚过去的这个周期的可用性
+            placementTool = ACRCPlacementComponent()
+            availabilityData = placementTool.calculateAvailability()
+
+            # 得到刚刚过去这个周期的虚拟机数目
+            vmNumbers = UsingInstancesDBUtil.getUsingInstancesCount()
+
+            # 添加上个周期应该提供的虚拟机数目
+            shouldVMNumbers = WorkloadVMMapDBUtil.getTargetVMsToSpecificWorkload(totalRequestCount)
+
+            if periodNo == 1:
+                ppVMNumbers = vmNumbers
+                rpVMNumbers = 0
+            else:
+                provisionInfoDB = shelve.open(provisionInfoFile)
+                ppVMNumbers = provisionInfoDB.get(predictProvisionVMNumbers, None)
+                rpVMNumbers = provisionInfoDB.get(reactiveProvisionVMNumbers, None)
+
+            # 添加performanceData
+            performanceData = {'minResponseTime': minResponseTime, 'maxResponseTime': maxResponseTime,
+                               'avgResponseTime': avgResponseTime, 'breakSLAPercent': breakSLAPercent,
+                               'avgCpuUtil': avgCpuUtil, 'avgMemoryUtil': avgMemoryUtil,
+                               'availability': availabilityData, 'vmNumbers': vmNumbers,
+                               'shouldVMNumbers': shouldVMNumbers, 'predictProvisionVMNumbers': ppVMNumbers,
+                               'reactiveProvisionVMNumbers': rpVMNumbers}
+            PerformanceDBUtil.addPerformanceDataToSpecificPeriod(periodNo, performanceData)
+
+            # 向数据库中添加workload信息
+            if periodNo == 1:
+                WorkloadDBUtil.addFirstPeriodRealWorkloadAndRealTotalCalculation(totalRequestCount, totalCalculation)
+            else:
+                WorkloadDBUtil.addRealWorkloadAndRealTotalCalculationToSpecificPeriod(periodNo, totalRequestCount, totalCalculation)
+
+            acrCtl = ACRController()
+            acrCtl.autonomicPeriodHandler()
+
+            TomcatInstanceUtil.ensureAllUsingInstancesActive()
+            return UsingInstancesDBUtil.getAllUsingInstancesInfo()
+
     def initExperiment(self, req):
         check = 1
 
