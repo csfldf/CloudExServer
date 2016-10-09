@@ -16,6 +16,18 @@ class Router(object):
     def add_routes(self):
         controller = controllers.Controller()
 
+        self.mapper.connect("/skipPMUtil",
+                           controller=controller, action="skipPMUtil",
+                           conditions=dict(method=["GET"]))
+
+        self.mapper.connect("/getThreadInfo",
+                           controller=controller, action="getThreadInfo",
+                           conditions=dict(method=["POST"]))
+
+        self.mapper.connect("/getPMOrVMUtil",
+                           controller=controller, action="getPMOrVMUtil",
+                           conditions=dict(method=["POST"]))
+
         self.mapper.connect("/modifyPMThreshold",
                            controller=controller, action="modifyPMThreshold",
                            conditions=dict(method=["POST"]))

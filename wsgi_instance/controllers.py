@@ -1,3 +1,4 @@
+#!/usr/bin/python
 #coding: utf-8
 import webob
 import simplejson
@@ -15,11 +16,62 @@ from ACRCUtil.ACRController import ACRController
 from ACRCUtil.ExperimentInit import ExperimentInit
 from ACRCUtil.ACRCPlacementComponent import ACRCPlacementComponent
 from DBUtil.PMAndAZDBUtil import PMAndAZDBUtil
+from DBUtil.PMCPUDBUtil import PMCPUDBUtil
+from DBUtil.VMCPUDBUtil import VMCPUDBUtil
+from PredictUtil import *
+from PredictUtil.PMCPUPredictUtil import PMCPUPredictUtil
+from PredictUtil.VMCPUPredictUtil import VMCPUPredictUtil
+import httplib, urllib
+from LoggingUtil import getLogUtil
 
 ipEndOfComputes = [50, 60, 70, 80, 210, 220, 230, 240]
+ipEndOfExThree = [50, 210, 220, 230]
 ipEndOfController = 40
+cpuLogger = getLogUtil('VMOrPMCPUUtilPredict')
 
 class Controller(object):
+    def getThreadInfo(self, req):
+        tarId = req.params.get('id')
+
+        if not tarId:
+            return errorResultJson('Please pass id!')
+
+        if PMAndAZDBUtil.isPMId(tarId):
+            tarIP = PMAndAZDBUtil.getInnerIPByPMId(tarId)
+            if not tarIP:
+                return errorResultJson(tarId + ' cannot be found')
+
+            os.system('/home/sk/cloudEx/shellScript/getThreadInfo.sh ' + tarIP.split('.')[-1] + ' > /dev/null')
+
+
+            df = open('/home/sk/cloudEx/tmpData/threadInfo.data')
+            info = df.read()
+            df.close()
+
+        else:
+            tarIP = UsingInstancesDBUtil.getUsingInstanceInnerIPById(tarId)
+
+            if not tarIP:
+                return errorResultJson(tarId + ' cannot be found')
+
+            params = urllib.urlencode({'ip':tarIP})
+            headers = {"Content-type": "application/x-www-form-urlencoded"
+                                        , "Accept": "text/plain"}
+            httpClient = httplib.HTTPConnection("202.120.40.20", 50020, timeout=300)
+            httpClient.request("POST", "/getSpecificThreadInfo", params, headers)
+            response = httpClient.getresponse()
+            info = response.read()
+            httpClient.close()
+
+        infoList = eval(info)
+        res = []
+        for item in infoList:
+            res.append({'thread_cnt': item[0], 'standard_freq': item[1], 'current_freq': item[2]})
+
+        return res
+
+
+
     def modifyPMThreshold(self, req):
         pmId = req.params.get('id')
         ut = float(req.params.get('upper_threshold'))
@@ -284,24 +336,103 @@ class Controller(object):
         if vmNum and isNumber(vmNum):
             rc = int(vmNum)
 
-            uic = UsingInstancesDBUtil.getUsingInstancesCount()
-            if rc > uic:
-                needC = rc - uic
-                while needC > 0:
-                    TomcatInstanceUtil.createTomcatInstance()
-                    needC -= 1
-            elif rc < uic:
-                deleteC = uic - rc
-                TomcatInstanceUtil.deleteSpecifyNumberInstances(deleteC)
+            TomcatInstanceUtil.deleteAllTestingInstance()
+
+            azList = ['az1', 'az2', 'az3', 'az5']
+            azLen = len(azList)
+            for i in range(rc):
+                TomcatInstanceUtil.createTomcatInstance(azName=azList[i % azLen])
 
             TomcatInstanceUtil.ensureAllUsingInstancesActive()
 
             for ipEnd in ipEndOfComputes:
                 os.system('/home/sk/cloudEx/shellScript/initAllPMUtil.sh ' + str(ipEnd) + ' > /dev/null')
 
+            #清空与预测相关的数据
+            clearAllData()
+            PMCPUDBUtil.clearPMCPUTable()
+            VMCPUDBUtil.clearVMCPUTable()
+
 
             return UsingInstancesDBUtil.getAllUsingInstancesInfo()
         else:
             result = errorResultJson('The Post Body Must be {requireCount:x} (ps:x must be number)')
         return result
+
+    def skipPMUtil(self, req):
+        for ipEnd in ipEndOfExThree:
+            os.system('/home/sk/cloudEx/shellScript/getPMUtil.sh ' + str(ipEnd) + ' > /dev/null')
+
+        return successResultJson('skip successfully')
+
+
+    def getPMOrVMUtil(self, req):
+        tarId = req.params.get('id')
+        periodNo = req.params.get('periodNo')
+
+        if tarId and periodNo and isNumber(periodNo):
+            periodNo = int(periodNo)
+
+            #是物理机
+            if PMAndAZDBUtil.isPMId(tarId):
+                #log
+                cpuLogger.info('pmId:' + tarId + ' periodNo:' + str(periodNo))
+
+                tarIP = PMAndAZDBUtil.getInnerIPByPMId(tarId)
+                if not tarIP:
+                    return errorResultJson(tarId + ' cannot be found')
+
+                os.system('/home/sk/cloudEx/shellScript/getPMUtil.sh ' + tarIP.split('.')[-1] + ' > /dev/null')
+
+
+                df = open('/home/sk/cloudEx/tmpData/result.data')
+                line = df.readline()
+                pmCPUUtil = round(float(line), 4) * 100
+                df.close()
+
+                if periodNo == 1:
+                    PMCPUDBUtil.addFirstPeriodRealPMCPU(pmCPUUtil, tarId)
+                else:
+                    PMCPUDBUtil.addRealPMCPUToSpecificPeriod(periodNo, tarId, pmCPUUtil)
+
+
+                addPMCPUUtilToPeriodicWindow(tarId, pmCPUUtil)
+                ppi = PMCPUPredictUtil()
+                pv = ppi.getNextPeriodWorkload(tarId)
+                addPredictPMCPUUtilToPeriodicWindow(tarId, pv)
+
+                PMCPUDBUtil.addPredictPMCPUToSpecificPeriod(periodNo + 1, pv, tarId)
+
+            #是虚拟机
+            else:
+
+                tarIP = UsingInstancesDBUtil.getUsingInstanceInnerIPById(tarId)
+
+                #log
+                cpuLogger.info('vmIP:' + tarIP + ' periodNo:' + str(periodNo))
+
+                if not tarIP:
+                    return errorResultJson(tarId + ' cannot be found')
+
+                rv = round(SampleUtil.getCpuUtilPeriodAVGByResourceId(tarId), 2)
+
+                if periodNo == 1:
+                    VMCPUDBUtil.addFirstPeriodRealVMCPU(rv, tarIP)
+                else:
+                    VMCPUDBUtil.addRealVMCPUToSpecificPeriod(periodNo, rv, tarIP)
+
+                addVMCPUUtilToPeriodicWindow(tarIP, rv)
+                pvi = VMCPUPredictUtil()
+                pv = pvi.getNextPeriodWorkload(tarIP)
+                addPredictVMCPUUtilToPeriodicWindow(tarIP, pv)
+
+                VMCPUDBUtil.addPredictVMCPUToSpecificPeriod(periodNo + 1, pv, tarIP)
+
+            return{'util':pv}
+
+
+        else:
+            return errorResultJson('Please pass the vmId or pmId!')
+
+
 
