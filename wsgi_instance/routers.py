@@ -68,6 +68,10 @@ class Router(object):
                            controller=controller, action="periodPerformanceDataHandler",
                            conditions=dict(method=["POST"]))
 
+        self.mapper.connect("/pushPeriodPerformanceData2",
+                            controller=controller, action="periodPerformanceDataHandler2",
+                            conditions=dict(method=["POST"]))
+
         self.mapper.connect("/initExperiment",
                            controller=controller, action="initExperiment",
                            conditions=dict(method=["GET"]))
