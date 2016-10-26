@@ -322,7 +322,7 @@ class Controller(object):
         jumpServer = req.params.get('jumpServer')
         infos = SampleUtil.getThreadInfosOverAllUsingInstances(jumpServer)
         avgCpuUtil = round(infos[0] / 100.0, 4)
-        totalCalculation = infos[1]
+        totalCalculation = round(infos[1] / 100.0, 4)
         avgMemoryUtil = round(SampleUtil.getAllUsingInstancesPeriodAVGMemoryUtil() / 100.0, 4)
 
         if not (isDecimal(minResponseTime) or isNumber(minResponseTime)) or not (
