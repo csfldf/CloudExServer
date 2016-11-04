@@ -24,7 +24,8 @@ from PredictUtil.VMCPUPredictUtil import VMCPUPredictUtil
 import httplib, urllib
 from LoggingUtil import getLogUtil
 
-ipEndOfComputes = [50, 60, 70, 80, 210, 220, 230, 240]
+# ipEndOfComputes = [50, 60, 70, 80, 210, 220, 230, 240]
+ipEndOfComputes = [50, 70, 80, 210, 220, 230, 240]
 ipEndOfExThree = [50, 210, 220, 230]
 ipEndOfController = 40
 cpuLogger = getLogUtil('VMOrPMCPUUtilPredict')
@@ -418,7 +419,7 @@ class Controller(object):
 
             TomcatInstanceUtil.deleteAllTestingInstance()
 
-            azList = ['az1', 'az2', 'az3', 'az5']
+            azList = ['az1', 'az2', 'az3', 'az4']
             azLen = len(azList)
             for i in range(rc):
                 TomcatInstanceUtil.createTomcatInstance(azName=azList[i % azLen])
