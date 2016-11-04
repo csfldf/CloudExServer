@@ -1,5 +1,5 @@
 #!/usr/bin/python
-#coding: utf-8
+# coding: utf-8
 import webob
 import simplejson
 import os
@@ -30,6 +30,7 @@ ipEndOfExThree = [50, 210, 220, 230]
 ipEndOfController = 40
 cpuLogger = getLogUtil('VMOrPMCPUUtilPredict')
 
+
 class Controller(object):
     def getThreadInfo(self, req):
         tarId = req.params.get('id')
@@ -44,7 +45,6 @@ class Controller(object):
 
             os.system('/home/sk/cloudEx/shellScript/getThreadInfo.sh ' + tarIP.split('.')[-1] + ' > /dev/null')
 
-
             df = open('/home/sk/cloudEx/tmpData/threadInfo.data')
             info = df.read()
             df.close()
@@ -55,9 +55,9 @@ class Controller(object):
             if not tarIP:
                 return errorResultJson(tarId + ' cannot be found')
 
-            params = urllib.urlencode({'ip':tarIP})
-            headers = {"Content-type": "application/x-www-form-urlencoded"
-                                        , "Accept": "text/plain"}
+            params = urllib.urlencode({'ip': tarIP})
+            headers = {"Content-type": "application/x-www-form-urlencoded",
+                       "Accept": "text/plain"}
             httpClient = httplib.HTTPConnection("202.120.40.20", 50020, timeout=300)
             httpClient.request("POST", "/getSpecificThreadInfo", params, headers)
             response = httpClient.getresponse()
@@ -70,8 +70,6 @@ class Controller(object):
             res.append({'thread_cnt': item[0], 'standard_freq': item[1], 'current_freq': item[2]})
 
         return res
-
-
 
     def modifyPMThreshold(self, req):
         pmId = req.params.get('id')
@@ -102,7 +100,6 @@ class Controller(object):
         else:
             return errorResultJson(False)
 
-
     def getVMList(self, req):
         pmId = req.params.get('id')
         azName = PMAndAZDBUtil.getAZNameByResourceId(pmId)
@@ -112,8 +109,6 @@ class Controller(object):
             return []
         else:
             return [vm['id'] for vm in vmList]
-
-
 
     def getPMList(self, req):
         check = 1
@@ -129,7 +124,6 @@ class Controller(object):
             return PMAndAZDBUtil.getAllPMsInfo()
         else:
             return errorResultJson('you are not allowed to do this!')
-
 
     def testAction(self, req):
         raise Exception('lalalalalalala')
@@ -151,7 +145,6 @@ class Controller(object):
         else:
             return errorResultJson('you are not allowed to do this!')
 
-
     def changeUtilPeriod(self, req):
         period = req.params.get('period')
         windowSize = req.params.get('windowSize')
@@ -165,11 +158,11 @@ class Controller(object):
                 result = errorResultJson('The period must be exact divided by windowSize')
             else:
                 for ipEnd in ipEndOfComputes:
-                    os.system('/home/sk/cloudEx/shellScript/changeCeilometerInterval.sh ' + str(ipEnd) + ' ' + str(period) + ' ' + str(windowSize) + ' > /dev/null')
-                #os.system('/home/sk/cloudEx/shellScript/setTTL.sh ' + str(period))
+                    os.system('/home/sk/cloudEx/shellScript/changeCeilometerInterval.sh ' + str(ipEnd) +
+                              ' ' + str(period) + ' ' + str(windowSize) + ' > /dev/null')
+                # os.system('/home/sk/cloudEx/shellScript/setTTL.sh ' + str(period))
                 result = successResultJson('Change Util poll period and windowSize successfully')
         return result
-
 
     def getUtil(self, req):
         vmIdList = req.params.get('vmIdList')
@@ -179,11 +172,10 @@ class Controller(object):
             for vmId in vmIdList:
                 cpuUtilAVG = SampleUtil.getCpuUtilPeriodAVGByResourceId(vmId)
                 memoryUtilAVG = SampleUtil.getMemoryUtilPeriodAVGByResourceId(vmId)
-                result[vmId] = {'memory':memoryUtilAVG, 'cpu':cpuUtilAVG}
+                result[vmId] = {'memory': memoryUtilAVG, 'cpu': cpuUtilAVG}
         except Exception:
             result = errorResultJson('The Post body must be vmIdList=["id1", "id2"]!')
         return result
-
 
     def create(self, req):
         rc = req.params.get('requireCount')
@@ -221,21 +213,21 @@ class Controller(object):
         result = method(req, **arg_dict)
 
         if result is None:
-            #返回Response的标准格式
+            # 返回Response的标准格式
             return webob.Response(body='',
                                   status='204 Not Found',
                                   headerlist=[('Content-Type',
                                                'application/json')])
         else:
-            #test result type
-            #f = open('debugLog.txt', 'a')
-            #print >> f, type(result), '\n', result
+            # test result type
+            # f = open('debugLog.txt', 'a')
+            # print >> f, type(result), '\n', result
 
-            #函数返回的result是dict类型，通过调用simplejson.dumps(result)方法，最后转化为str类型返回
+            # 函数返回的result是dict类型，通过调用simplejson.dumps(result)方法，最后转化为str类型返回
             if not isinstance(result, basestring):
                 result = simplejson.dumps(result)
-            #test result type
-            #print >> f, type(result), '\n', result
+            # test result type
+            # print >> f, type(result), '\n', result
             return result
 
     def periodPerformanceDataHandler(self, req):
@@ -247,8 +239,11 @@ class Controller(object):
         avgCpuUtil = round(SampleUtil.getAllUsingInstancesPeriodAVGCpuUtil() / 100.0, 4)
         avgMemoryUtil = round(SampleUtil.getAllUsingInstancesPeriodAVGMemoryUtil() / 100.0, 4)
 
-
-        if  not (isDecimal(minResponseTime) or isNumber(minResponseTime)) or not (isDecimal(maxResponseTime) or isNumber(maxResponseTime)) or not (isDecimal(avgResponseTime) or isNumber(avgResponseTime)) or not isNumber(totalRequestCount) or not isNumber(breakSLACount):
+        if not (isDecimal(minResponseTime) or isNumber(minResponseTime)) \
+                or not (isDecimal(maxResponseTime) or isNumber(maxResponseTime)) \
+                or not (isDecimal(avgResponseTime) or isNumber(avgResponseTime)) \
+                or not isNumber(totalRequestCount) \
+                or not isNumber(breakSLACount):
             return errorResultJson('Please pass the params correctly')
         elif avgCpuUtil == None or avgMemoryUtil == None:
             raise Exception("can not get avgCpuUtil or avgMemoryUtil data")
@@ -259,8 +254,7 @@ class Controller(object):
             totalRequestCount = int(totalRequestCount)
             breakSLACount = int(breakSLACount)
 
-
-            #确认periodNo
+            # 确认periodNo
             periodNoDB = shelve.open(periodRecoderFile)
             periodNo = periodNoDB.get(periodRecoder, None)
 
@@ -270,21 +264,19 @@ class Controller(object):
             periodNoDB[periodRecoder] = periodNo + 1
             periodNoDB.close()
 
-            #计算breakSLAPercent
+            # 计算breakSLAPercent
             breakSLAPercent = float(breakSLACount) / totalRequestCount
             breakSLAPercent = round(breakSLAPercent, 4)
 
-
-            #计算刚刚过去的这个周期的可用性
+            # 计算刚刚过去的这个周期的可用性
             placementTool = ACRCPlacementComponent()
             availabilityData = placementTool.calculateAvailability()
 
-            #得到刚刚过去这个周期的虚拟机数目
+            # 得到刚刚过去这个周期的虚拟机数目
             vmNumbers = UsingInstancesDBUtil.getUsingInstancesCount()
 
-            #添加上个周期应该提供的虚拟机数目
+            # 添加上个周期应该提供的虚拟机数目
             shouldVMNumbers = WorkloadVMMapDBUtil.getTargetVMsToSpecificWorkload(totalRequestCount)
-
 
             if periodNo == 1:
                 ppVMNumbers = vmNumbers
@@ -294,14 +286,16 @@ class Controller(object):
                 ppVMNumbers = provisionInfoDB.get(predictProvisionVMNumbers, None)
                 rpVMNumbers = provisionInfoDB.get(reactiveProvisionVMNumbers, None)
 
-
-
-            #添加performanceData
-            performanceData = {'minResponseTime':minResponseTime, 'maxResponseTime':maxResponseTime, 'avgResponseTime':avgResponseTime, 'breakSLAPercent':breakSLAPercent, 'avgCpuUtil':avgCpuUtil, 'avgMemoryUtil':avgMemoryUtil, 'availability':availabilityData, 'vmNumbers':vmNumbers, 'shouldVMNumbers':shouldVMNumbers, 'predictProvisionVMNumbers':ppVMNumbers, 'reactiveProvisionVMNumbers':rpVMNumbers}
+            # 添加performanceData
+            performanceData = {'minResponseTime': minResponseTime, 'maxResponseTime': maxResponseTime,
+                               'avgResponseTime': avgResponseTime, 'breakSLAPercent': breakSLAPercent,
+                               'avgCpuUtil': avgCpuUtil, 'avgMemoryUtil': avgMemoryUtil,
+                               'availability': availabilityData, 'vmNumbers': vmNumbers,
+                               'shouldVMNumbers': shouldVMNumbers, 'predictProvisionVMNumbers': ppVMNumbers,
+                               'reactiveProvisionVMNumbers': rpVMNumbers}
             PerformanceDBUtil.addPerformanceDataToSpecificPeriod(periodNo, performanceData)
 
-
-            #向数据库中添加workload信息
+            # 向数据库中添加workload信息
             if periodNo == 1:
                 WorkloadDBUtil.addFirstPeriodRealWorkload(totalRequestCount)
             else:
@@ -324,12 +318,14 @@ class Controller(object):
         infos = SampleUtil.getThreadInfosOverAllUsingInstances(jumpServer)
         avgCpuUtil = round(infos[0] / 100.0, 4)
         totalCalculation = round(infos[1] / 100.0, 4)
+        usingInstances = infos[2]
         avgMemoryUtil = round(SampleUtil.getAllUsingInstancesPeriodAVGMemoryUtil() / 100.0, 4)
 
-        if not (isDecimal(minResponseTime) or isNumber(minResponseTime)) or not (
-            isDecimal(maxResponseTime) or isNumber(maxResponseTime)) or not (
-            isDecimal(avgResponseTime) or isNumber(avgResponseTime)) or not isNumber(totalRequestCount) or not isNumber(
-                breakSLACount):
+        if not (isDecimal(minResponseTime) or isNumber(minResponseTime)) \
+                or not (isDecimal(maxResponseTime) or isNumber(maxResponseTime)) \
+                or not (isDecimal(avgResponseTime) or isNumber(avgResponseTime)) \
+                or not isNumber(totalRequestCount) \
+                or not isNumber(breakSLACount):
             return errorResultJson('Please pass the params correctly')
         elif avgCpuUtil == None or avgMemoryUtil == None or totalCalculation == None:
             raise Exception("can not get avgCpuUtil or avgMemoryUtil or totalCalculation data")
@@ -383,9 +379,12 @@ class Controller(object):
 
             # 向数据库中添加workload信息
             if periodNo == 1:
-                WorkloadDBUtil.addFirstPeriodRealWorkloadAndRealTotalCalculation(totalRequestCount, totalCalculation)
+                WorkloadDBUtil.addFirstPeriodRealWorkloadAndRealTotalCalculation(totalRequestCount/usingInstances,
+                                                                                 totalCalculation/usingInstances)
             else:
-                WorkloadDBUtil.addRealWorkloadAndRealTotalCalculationToSpecificPeriod(periodNo, totalRequestCount, totalCalculation)
+                WorkloadDBUtil.addRealWorkloadAndRealTotalCalculationToSpecificPeriod(periodNo,
+                                                                                      totalRequestCount/usingInstances,
+                                                                                      totalCalculation/usingInstances)
 
             acrCtl = ACRController()
             acrCtl.autonomicPeriodHandler()
@@ -410,7 +409,6 @@ class Controller(object):
         else:
             return errorResultJson('You are not allowed to do this!')
 
-
     def initExperimentThree(self, req):
         vmNum = req.params.get('requireCount')
 
@@ -429,11 +427,10 @@ class Controller(object):
             for ipEnd in ipEndOfComputes:
                 os.system('/home/sk/cloudEx/shellScript/initAllPMUtil.sh ' + str(ipEnd) + ' > /dev/null')
 
-            #清空与预测相关的数据
+            # 清空与预测相关的数据
             clearAllData()
             PMCPUDBUtil.clearPMCPUTable()
             VMCPUDBUtil.clearVMCPUTable()
-
 
             return UsingInstancesDBUtil.getAllUsingInstancesInfo()
         else:
@@ -446,7 +443,6 @@ class Controller(object):
 
         return successResultJson('skip successfully')
 
-
     def getPMOrVMUtil(self, req):
         tarId = req.params.get('id')
         periodNo = req.params.get('periodNo')
@@ -454,9 +450,9 @@ class Controller(object):
         if tarId and periodNo and isNumber(periodNo):
             periodNo = int(periodNo)
 
-            #是物理机
+            # 是物理机
             if PMAndAZDBUtil.isPMId(tarId):
-                #log
+                # log
                 cpuLogger.info('pmId:' + tarId + ' periodNo:' + str(periodNo))
 
                 tarIP = PMAndAZDBUtil.getInnerIPByPMId(tarId)
@@ -464,7 +460,6 @@ class Controller(object):
                     return errorResultJson(tarId + ' cannot be found')
 
                 os.system('/home/sk/cloudEx/shellScript/getPMUtil.sh ' + tarIP.split('.')[-1] + ' > /dev/null')
-
 
                 df = open('/home/sk/cloudEx/tmpData/result.data')
                 line = df.readline()
@@ -476,7 +471,6 @@ class Controller(object):
                 else:
                     PMCPUDBUtil.addRealPMCPUToSpecificPeriod(periodNo, tarId, pmCPUUtil)
 
-
                 addPMCPUUtilToPeriodicWindow(tarId, pmCPUUtil)
                 ppi = PMCPUPredictUtil()
                 pv = ppi.getNextPeriodWorkload(tarId)
@@ -484,12 +478,12 @@ class Controller(object):
 
                 PMCPUDBUtil.addPredictPMCPUToSpecificPeriod(periodNo + 1, pv, tarId)
 
-            #是虚拟机
+            # 是虚拟机
             else:
 
                 tarIP = UsingInstancesDBUtil.getUsingInstanceInnerIPById(tarId)
 
-                #log
+                # log
                 cpuLogger.info('vmIP:' + tarIP + ' periodNo:' + str(periodNo))
 
                 if not tarIP:
@@ -509,11 +503,8 @@ class Controller(object):
 
                 VMCPUDBUtil.addPredictVMCPUToSpecificPeriod(periodNo + 1, pv, tarIP)
 
-            return{'util':pv}
+            return {'util': pv}
 
 
         else:
             return errorResultJson('Please pass the vmId or pmId!')
-
-
-
