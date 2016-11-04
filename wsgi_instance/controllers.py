@@ -318,7 +318,6 @@ class Controller(object):
         infos = SampleUtil.getThreadInfosOverAllUsingInstances(jumpServer)
         avgCpuUtil = round(infos[0] / 100.0, 4)
         totalCalculation = round(infos[1] / 100.0, 4)
-        usingInstances = infos[2]
         avgMemoryUtil = round(SampleUtil.getAllUsingInstancesPeriodAVGMemoryUtil() / 100.0, 4)
 
         if not (isDecimal(minResponseTime) or isNumber(minResponseTime)) \
@@ -379,12 +378,10 @@ class Controller(object):
 
             # 向数据库中添加workload信息
             if periodNo == 1:
-                WorkloadDBUtil.addFirstPeriodRealWorkloadAndRealTotalCalculation(totalRequestCount/usingInstances,
-                                                                                 totalCalculation/usingInstances)
+                WorkloadDBUtil.addFirstPeriodRealWorkloadAndRealTotalCalculation(totalRequestCount, totalCalculation)
             else:
-                WorkloadDBUtil.addRealWorkloadAndRealTotalCalculationToSpecificPeriod(periodNo,
-                                                                                      totalRequestCount/usingInstances,
-                                                                                      totalCalculation/usingInstances)
+                WorkloadDBUtil.addRealWorkloadAndRealTotalCalculationToSpecificPeriod(periodNo, totalRequestCount,
+                                                                                      totalCalculation)
 
             acrCtl = ACRController()
             acrCtl.autonomicPeriodHandler()
